@@ -23,7 +23,7 @@ class GetIndicatorData(BaseModel):
 class EsiosService:
     BASE_URL = "https://api.esios.ree.es"
     TIMEOUT = 600  # seconds
-    MAX_SAMPLE_VALUES = 10
+    MAX_SAMPLE_VALUES = 10000
 
     def __init__(self, api_token: str) -> None:
         """Initializes the connection to the ESIOS API."""
@@ -75,41 +75,36 @@ class EsiosService:
             except re.error:
                 return f"Invalid regex pattern: '{parameters.query}'"
 
-            matching_indicators = [
-                {
-                    'id': ind['id'],
-                    'name': ind['name'],
-                    'short_name': ind['short_name'],
-                    'description': ind.get('description', 'No description available'),
-                }
-                for ind in indicators
+            matching_indicators = []
+            for ind in indicators:
                 if (pattern.search(ind['name']) or 
                     pattern.search(ind['short_name']) or
-                    pattern.search(ind.get('description', '')))
-            ]
+                    pattern.search(ind.get('description', ''))):
+                    matching_indicators.append(ind)
 
             if not matching_indicators:
                 return "No indicators found matching your query."
 
             result = f"Found {len(matching_indicators)} matching indicators:\n\n"
-            max_indicators_with_descriptions = 30
-            if len(matching_indicators) > max_indicators_with_descriptions:
-                result += (
-                    f"Note: The description for each indicator is not shown since there are more than {max_indicators_with_descriptions} matches. "
-                    f"If you want to see the description for each indicator, please refine your search to get less than {max_indicators_with_descriptions} matches.\n\n"
-                )
             
+            # For better LLM processing, use consistent formatting
             for ind in matching_indicators:
-                result += (
-                    f"ID: {ind['id']}\n"
-                    f"Name: {ind['name']}\n"
-                    f"Short name: {ind['short_name']}\n"
-                )
-                if len(matching_indicators) < max_indicators_with_descriptions:
-                    result += f"Description: {ind['description']}\n\n"
-                else:
-                    result += "\n"
+                result += f"ID: {ind['id']}\n"
+                result += f"Name: {ind['name']}\n"
+                if ind.get('short_name'):
+                    result += f"Short name: {ind['short_name']}\n"
+                
+                # Include description - it's crucial for LLMs to understand what the indicator represents
+                if ind.get('description'):
+                    result += f"Description: {ind['description']}\n"
+                
+                result += "\n"
 
+            if len(matching_indicators) > 100:
+                result += "Note: Large result set returned. Consider refining your search query for more targeted results.\n"
+                
+            result += "Use the indicator ID with get_indicator_data to retrieve actual time series data."
+            
             return result
         except Exception as e:
             logger.error(f"Failed to search indicators: {e}")
@@ -135,16 +130,34 @@ class EsiosService:
                 response.raise_for_status()
                 indicator_data = await response.json()
 
-            values = indicator_data['indicator']['values']
-            result = (
-                f"Data for indicator {parameters.indicator_id}:\n"
-                f"Name: {indicator_data['indicator']['name']}\n"
-                f"Values: {len(values)} data points\n\n"
-            )
-
+            indicator_info = indicator_data['indicator']
+            values = indicator_info['values']
+            
+            # Build clean, structured text output
+            result = f"Indicator: {indicator_info['name']} (ID: {parameters.indicator_id})\n"
+            result += f"Data points: {len(values)}\n"
+            result += f"Period: {start_date_str} to {end_date_str}\n"
+            result += f"Aggregation: {parameters.time_agg} per {parameters.time_trunc}\n\n"
+            
+            # Add summary statistics
+            if values:
+                numeric_values = [float(v['value']) for v in values if v['value'] is not None]
+                if numeric_values:
+                    result += f"Summary: min={min(numeric_values):.2f}, max={max(numeric_values):.2f}, avg={sum(numeric_values)/len(numeric_values):.2f}\n\n"
+            
+            # Show sample data points
+            result += "Data:\n"
             sample_values = values[:self.MAX_SAMPLE_VALUES]
             for value in sample_values:
-                result += f"Datetime: {value['datetime']}, Value: {value['value']}, Geo name: {value['geo_name']}\n"
+                # Use the cleaner datetime format from API
+                dt = value.get('datetime', 'Unknown')
+                val = value.get('value', 'N/A')
+                geo = value.get('geo_name', '')
+                
+                result += f"{dt}: {val}"
+                if geo:
+                    result += f" ({geo})"
+                result += "\n"
             
             if len(values) > self.MAX_SAMPLE_VALUES:
                 result += f"\n... and {len(values) - self.MAX_SAMPLE_VALUES} more data points"

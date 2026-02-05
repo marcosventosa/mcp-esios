@@ -54,13 +54,23 @@ async def serve(api_token: str) -> None:
             Tool(
                 name=EsiosTools.SEARCH_INDICATORS,
                 description="""
-                    Searches for energy indicators in the ESIOS system (Spanish Electricity System Operator Information System) 
-                    based on a text query. **The search is regex-based**, allowing for powerful pattern matching in indicator names 
-                    and descriptions. You can use standard regex patterns to refine your search (e.g., "price.*market" to find 
-                    indicators with "price" followed by "market"). 
+                    Searches for energy indicators in the Spanish electricity system (Red Eléctrica de España - REE ESIOS).
+                    ESIOS provides data on electricity prices, demand, generation by source (solar, wind, nuclear, etc.), 
+                    cross-border exchanges, and system operations.
                     
-                    Use this tool to find available indicators by name or description before requesting their specific data. 
-                    Returns a list of matching indicators with their IDs, names, and descriptions.
+                    **Search is regex-based** - use Spanish terms like:
+                    - "precio" - find all price-related indicators
+                    - "demanda|consumo" - find demand or consumption indicators  
+                    - "solar|eólica" - find renewable generation indicators
+                    - "mercado.*diario" - find daily market indicators
+                    - "generación.*nuclear" - find nuclear generation data
+                    
+                    **Returns structured JSON** with:
+                    - indicator metadata (ID, name, unit, data_type)
+                    - total match count
+                    - usage guidance
+                    
+                    Use indicator IDs from results with get_indicator_data to retrieve actual time series data.
                 """,
                 inputSchema=SearchIndicators.schema(),
             ),
@@ -68,11 +78,23 @@ async def serve(api_token: str) -> None:
                 name=EsiosTools.GET_INDICATOR_DATA,
                 description="""
                     Retrieves time series data for a specific ESIOS indicator within a date range. You must provide a valid 
-                    indicator ID (which can be found using the SEARCH_INDICATORS tool), start date, and end date. 
-                    Dates should be in ISO8601 format (YYYY-MM-DDTHH:mm:ss.SSS[Z]). This tool returns actual data values for the specified 
-                    indicator over time, which can include electricity prices, generation amounts, demand levels, or other 
-                    energy metrics depending on the indicator requested. The data is typically returned as a time series with 
-                    timestamps and corresponding values.
+                    indicator ID (found using search_indicators), start date, and end date in ISO8601 format.
+                    
+                    **Parameters guidance**:
+                    - time_trunc: "hour" for detailed data, "day" for daily summaries, "month"/"year" for longer periods
+                    - time_agg: "avg" for prices (€/MWh), "sum" for energy quantities (MWh)
+                    
+                    **Returns structured JSON** with:
+                    - Complete indicator metadata (name, unit, description)
+                    - Summary statistics (min, max, avg, count)
+                    - Time series data points with timestamps and values
+                    - Query parameters for reference
+                    
+                    Common data types include:
+                    - Electricity prices in €/MWh
+                    - Generation/demand in MW or MWh  
+                    - Cross-border flows in MW
+                    - System operation metrics
                 """,
                 inputSchema=GetIndicatorData.schema(),
             ),

@@ -1,0 +1,28 @@
+{
+    "mcpServers": {
+      "MCP_ESIOS": {
+        "command": "docker",
+        "args": ["run", "-i", "--rm", "-e", "ESIOS_API_TOKEN", "esios_image"],
+        "env": {
+          "ESIOS_API_TOKEN": "81aa76fe658bbec81261584a276305ba1e67e3f38393b1aa72754a20aab2b036"
+        }
+      }
+    }
+  }
+  
+{
+    "mcpServers": {
+        "MCP_ESIOS": {
+            "command": "uv",
+            "args": [
+                "--directory",
+                "/Users/marcos/repos/esios-mcp",
+                "run",
+                "esios-mcp"
+            ],
+            "env": {
+                "ESIOS_API_TOKEN":"81aa76fe658bbec81261584a276305ba1e67e3f38393b1aa72754a20aab2b036"
+            }
+        }
+    }
+}

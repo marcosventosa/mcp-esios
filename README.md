@@ -54,6 +54,12 @@ Build the Docker image:
 docker build -t mcp-esios .
 ```
 
+Or pull from Docker Hub:
+
+```bash
+docker pull mventosapontes/mcp-esios:0.1.0
+```
+
 Run the container:
 
 ```bash
